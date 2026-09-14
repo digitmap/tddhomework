@@ -14,6 +14,6 @@ jobs:
           RAW_URL="${{ secrets.SUPABASE_URL }}"
           CLEAN_URL="${RAW_URL%/}"
           
-          # 请求 Auth 服务的健康检查接口，携带 anon apikey
-          curl -f -i -X GET "${CLEAN_URL}/auth/v1/health" \
-            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}"
+          curl -f -i -X GET "${CLEAN_URL}/rest/v1/" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
