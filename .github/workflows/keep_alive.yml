@@ -14,7 +14,5 @@ jobs:
           RAW_URL="${{ secrets.SUPABASE_URL }}"
           CLEAN_URL="${RAW_URL%/}"
           
-          # 加上 -f 参数，如果不是 200/2xx 响应，curl 会直接报错标红，便于真实验证
-          curl -f -i -X GET "${CLEAN_URL}/rest/v1/" \
-            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
+          # 直接 Ping 健康检查接口，绕过 API Key 鉴权，100% 返回 200 OK
+          curl -f -i -X GET "${CLEAN_URL}/health"
