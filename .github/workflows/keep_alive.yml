@@ -2,10 +2,8 @@ name: Keep Supabase Alive
 
 on:
   schedule:
-    # 定时任务：每周一和周四的零点（UTC）自动触发运行
-    # Supabase 是 7 天不请求才暂停，每 3-4 天 Ping 一次极为安全
     - cron: '0 0 * * 1,4'
-  workflow_dispatch: # 允许在 GitHub 后台手动点击触发测试
+  workflow_dispatch:
 
 jobs:
   ping-supabase:
@@ -13,6 +11,11 @@ jobs:
     steps:
       - name: Send API Ping to Supabase
         run: |
-          curl -i -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/" \
+          # 提取 URL 并去掉可能多余的末尾斜杠
+          RAW_URL="${{ secrets.SUPABASE_URL }}"
+          CLEAN_URL="${RAW_URL%/}"
+          
+          # 发起请求
+          curl -i -X GET "${CLEAN_URL}/rest/v1/" \
             -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
