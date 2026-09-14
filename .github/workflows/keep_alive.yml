@@ -11,11 +11,10 @@ jobs:
     steps:
       - name: Send API Ping to Supabase
         run: |
-          # 提取 URL 并去掉可能多余的末尾斜杠
           RAW_URL="${{ secrets.SUPABASE_URL }}"
           CLEAN_URL="${RAW_URL%/}"
           
-          # 发起请求
-          curl -i -X GET "${CLEAN_URL}/rest/v1/" \
+          # 加上 -f 参数，如果不是 200/2xx 响应，curl 会直接报错标红，便于真实验证
+          curl -f -i -X GET "${CLEAN_URL}/rest/v1/" \
             -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
