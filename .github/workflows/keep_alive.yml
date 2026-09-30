@@ -2,7 +2,7 @@ name: Keep Supabase Alive
 
 on:
   schedule:
-    - cron: '45 15 * *'
+    - cron: '45 15 * * *' # 每天 UTC 时间 15:45 执行一次
   workflow_dispatch:
 
 jobs:
