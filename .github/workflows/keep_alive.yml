@@ -2,37 +2,57 @@ name: Keep Supabase Alive
 
 on:
   schedule:
-    - cron: '45 15 * * 1,4'
+    - cron: '45 15 * *'
   workflow_dispatch:
 
 jobs:
   ping-supabase:
     runs-on: ubuntu-latest
     steps:
-      - name: Query Supabase and Verify ID
+      - name: Query, Update and Verify Supabase
         run: |
           RAW_URL="${{ secrets.SUPABASE_URL }}"
           CLEAN_URL="${RAW_URL%/}"
           
-          # 1. 发起 GET 请求查询 keepaliveuser 表中 id=eq.260930 的记录
-          RESPONSE=$(curl -sS -X GET "${CLEAN_URL}/rest/v1/keepaliveuser?id=eq.260930&select=id" \
+          echo "=================== 1. 执行写操作 (UPDATE 时间戳) ==================="
+          # 生成当前 UTC 时间 ISO 字符串 (格式: YYYY-MM-DDTHH:MM:SSZ)
+          CURRENT_TIME=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          
+          # 通过 PATCH 请求更新 id=260930 的 created_at 字段，产生真实 Write IO
+          UPDATE_RESPONSE=$(curl -sS -i -X PATCH "${CLEAN_URL}/rest/v1/keepaliveuser?id=eq.260930" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=minimal" \
+            -d "{\"created_at\": \"$CURRENT_TIME\"}")
+          
+          echo "更新请求时间戳: $CURRENT_TIME"
+          
+          
+          echo "=================== 2. 执行读操作 (GET 查询校验) ==================="
+          # 发起 GET 请求查询 id=eq.260930 的记录
+          GET_RESPONSE=$(curl -sS -X GET "${CLEAN_URL}/rest/v1/keepaliveuser?id=eq.260930&select=id,created_at" \
             -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
             -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
             -H "Range: 0-0")
           
-          echo "API 返回结果: $RESPONSE"
+          echo "API 返回结果: $GET_RESPONSE"
           
-          # 2. 使用 jq 解析 JSON，提取数组中第一条记录的 id
-          FETCHED_ID=$(echo "$RESPONSE" | jq -r '.[0].id // empty')
+          # 3. 使用 jq 解析 JSON 数据
+          FETCHED_ID=$(echo "$GET_RESPONSE" | jq -r '.[0].id // empty')
+          FETCHED_TIME=$(echo "$GET_RESPONSE" | jq -r '.[0].created_at // empty')
           
-          # 3. 判定提取到的 ID 是否等于 260930
+          echo "=================== 3. 校验读写结果 ==================="
           if [ "$FETCHED_ID" = "260930" ]; then
-            echo "✅ 成功查询到目标记录 (ID: 260930)，Supabase 保持活跃状态！"
+            echo "✅ 读写双向验证成功！"
+            echo "   - 目标 ID: $FETCHED_ID"
+            echo "   - 最新时间戳: $FETCHED_TIME"
+            echo "✅ Supabase 保持活跃状态！"
           else
             echo "❌ 校验失败：未能查找到 ID 为 260930 的记录！"
             echo "请检查："
             echo "1. keepaliveuser 表中 ID 260930 是否被误删；"
-            echo "2. 是否在 Supabase 控制台中关闭了该表的 RLS，或允许 anon 角色读取；"
-            echo "3. Supabase 项目是否再次处于 Pause 状态。"
+            echo "2. 是否在 Supabase 控制台中给 anon 角色赋予了该表的 SELECT 和 UPDATE 权限（RLS 策略）；"
+            echo "3. Supabase 项目当前是否处于 Pause 状态。"
             exit 1
           fi
