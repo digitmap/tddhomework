@@ -9,11 +9,30 @@ jobs:
   ping-supabase:
     runs-on: ubuntu-latest
     steps:
-      - name: Send API Ping to Supabase
+      - name: Query Supabase and Verify ID
         run: |
           RAW_URL="${{ secrets.SUPABASE_URL }}"
           CLEAN_URL="${RAW_URL%/}"
           
-          curl -f -i -X GET "${CLEAN_URL}/rest/v1/" \
+          # 1. 发起 GET 请求查询 keepaliveuser 表中 id=eq.260930 的记录
+          RESPONSE=$(curl -sS -X GET "${CLEAN_URL}/rest/v1/keepaliveuser?id=eq.260930&select=id" \
             -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
-            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Range: 0-0")
+          
+          echo "API 返回结果: $RESPONSE"
+          
+          # 2. 使用 jq 解析 JSON，提取数组中第一条记录的 id
+          FETCHED_ID=$(echo "$RESPONSE" | jq -r '.[0].id // empty')
+          
+          # 3. 判定提取到的 ID 是否等于 260930
+          if [ "$FETCHED_ID" = "260930" ]; then
+            echo "✅ 成功查询到目标记录 (ID: 260930)，Supabase 保持活跃状态！"
+          else
+            echo "❌ 校验失败：未能查找到 ID 为 260930 的记录！"
+            echo "请检查："
+            echo "1. keepaliveuser 表中 ID 260930 是否被误删；"
+            echo "2. 是否在 Supabase 控制台中关闭了该表的 RLS，或允许 anon 角色读取；"
+            echo "3. Supabase 项目是否再次处于 Pause 状态。"
+            exit 1
+          fi
